@@ -4,23 +4,27 @@ import numpy as np
 import os
 
 # ==== SETTINGS ====
-input_video_path = "inidiantwo.mp4"
-json_path = "maahan-maaveerffan-pose.json"
-output_video_path = "output/bio_pose_output_bliuyufftyuiotnuhfgjgdgjdfkjkjking.mp4"
-output_width, output_height = 960, 840
+input_video_path = "74judo.mp4"
+json_path = "74-judo-throws-in120sec.json"
+output_video_path = "output/bio_pose_output_blinuhkjkjking.mp4"
+output_width, output_height = 960, 840  # Your latest request
 fps = 30
-output_duration_sec = 424.8
+output_duration_sec = 93
 total_frames = int(fps * output_duration_sec)
+
+# Blinking effect
+blink_cycle = 20
+blink_on = 12
 
 # ==== LOAD POSE DATA ====
 with open(json_path, "r") as f:
     original_pose_data = json.load(f)
 
-pose_duration_sec = 60 * 93
+pose_duration_sec = 60*18
 pose_total_frames = int(pose_duration_sec * fps)
 repeat_count = int(np.ceil(total_frames / pose_total_frames))
 
-# Repeat pose data to match video length
+# Repeat pose data across full length
 wrapped_pose_data = {}
 for repeat in range(repeat_count):
     for entry in original_pose_data:
@@ -29,7 +33,7 @@ for repeat in range(repeat_count):
         if new_fid < total_frames:
             wrapped_pose_data.setdefault(new_fid, []).append(entry)
 
-# COCO skeleton edges
+# COCO skeleton
 skeleton_edges = [
     (5, 7), (7, 9), (6, 8), (8, 10),
     (11, 13), (13, 15), (12, 14), (14, 16),
@@ -55,49 +59,50 @@ while frame_id < total_frames:
         video_frame_id = 0
         continue
 
-    # Resize the frame
+    # Resize based on output width instead of height
     orig_h, orig_w = frame.shape[:2]
     scale = output_width / orig_w
     new_h = int(orig_h * scale)
     resized = cv2.resize(frame, (output_width, new_h))
 
-    # Create padded canvas
+    # Pad vertically to match 960x840
     canvas = np.zeros((output_height, output_width, 3), dtype=np.uint8)
     y_offset = (output_height - new_h) // 2
     if 0 <= y_offset < output_height and new_h <= output_height:
         canvas[y_offset:y_offset + new_h, :] = resized
     else:
-        resized = cv2.resize(frame, (output_width, output_height))
+        resized = cv2.resize(frame, (output_width, output_height))  # fallback if too large
         canvas = resized.copy()
-        scale = output_width / orig_w
+        scale = output_width / orig_w  # update scale accordingly
         y_offset = 0
 
-    # === DRAW POSE ===
+    visible = (frame_id % blink_cycle) < blink_on
     persons = wrapped_pose_data.get(frame_id, [])
 
     for person in persons:
         keypoints = np.array(person["keypoints"], dtype=np.float32)
-        scaled_keypoints = [(int(x * scale), int(y * scale) + y_offset) for x, y in keypoints]
 
-        # Skip if not enough keypoints are in-frame
+        scaled_keypoints = []
+        for x, y in keypoints:
+            sx = int(x * scale)
+            sy = int(y * scale) + y_offset
+            scaled_keypoints.append((sx, sy))
+
         inframe = [pt for pt in scaled_keypoints if 0 <= pt[0] < output_width and 0 <= pt[1] < output_height]
         if len(inframe) < 5:
             continue
 
-        # Draw keypoints
-        for pt in scaled_keypoints:
-            cv2.circle(canvas, pt, 4, (0, 255, 0), -1)
+        if visible:
+            for pt in scaled_keypoints:
+                cv2.circle(canvas, pt, 4, (0, 255, 0), -1)
 
-        # Draw skeleton edges
-        for i, j in skeleton_edges:
-            try:
-                pt1 = scaled_keypoints[i]
-                pt2 = scaled_keypoints[j]
-                cv2.line(canvas, pt1, pt2, (255, 0, 0), 2)
-            except IndexError:
-                continue
+            for i, j in skeleton_edges:
+                try:
+                    pt1, pt2 = scaled_keypoints[i], scaled_keypoints[j]
+                    cv2.line(canvas, pt1, pt2, (255, 0, 0), 2)
+                except IndexError:
+                    continue
 
-        # Draw limb vectors (if available)
         vecs = person.get("limb_vectors", {})
         for name, vec in vecs.items():
             dx = vec["dx"] * scale * 0.5
@@ -124,17 +129,16 @@ while frame_id < total_frames:
 
             tip = (int(origin[0] + dx), int(origin[1] + dy))
             color = (0, 0, 255) if "result" not in name else (255, 255, 0)
-            cv2.arrowedLine(canvas, origin, tip, color, 2, tipLength=0.2)
+            if visible:
+                cv2.arrowedLine(canvas, origin, tip, color, 2, tipLength=0.2)
 
-    # Write frame to output
     out.write(canvas)
     frame_id += 1
     video_frame_id += 1
 
     if frame_id % 300 == 0:
-        print(f"🟢 Processed {frame_id}/{total_frames} frames")
+        print(f"🟢 {frame_id}/{total_frames} frames processed")
 
-# ==== CLEANUP ====
 cap.release()
 out.release()
 print(f"✅ Video saved to: {output_video_path}")
