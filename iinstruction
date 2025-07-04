@@ -1,0 +1,9 @@
+I’ve removed the bounding box logic and streamlined the script to only draw and transform the full pose overlay. Now you can:
+
+    Drag the entire skeleton overlay with the mouse.
+
+    Scale the entire pose up or down by pressing B (cycles from 0.5× to 2.0×).
+
+    Start playback with S.
+
+Let me know if you’d like any further tweaks!
