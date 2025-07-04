@@ -4,9 +4,9 @@ import numpy as np
 import os
 
 # ==== SETTINGS ====
-input_video_path = "ff.mp4"
-json_path = "anniyanfightpose.json"
-output_video_path = "output/bio_pose_output_bliuyutyuiotnuhfgjgdgjdfkjkjking.mp4"
+input_video_path = "inidiantwo.mp4"
+json_path = "maahan-maaveerffan-pose.json"
+output_video_path = "output/bio_pose_output_bliuyufftyuiotnuhfgjgdgjdfkjkjking.mp4"
 output_width, output_height = 960, 840
 fps = 30
 output_duration_sec = 424.8
